@@ -1,0 +1,2038 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Propel - Pushing projects and careers forward.</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // Set up Tailwind dark mode
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <style>
+        /* Custom styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Light mode default */
+            background-color: #F3F4F6; /* gray-100 */
+            color: #1F2937; /* gray-800 */
+            transition: background-color 0.5s, color 0.5s;
+        }
+
+        /* Dark mode styles */
+        .dark body {
+            background-color: #0A0A0A;
+            color: #EAEAEA;
+        }
+
+        /* Header gradient glow effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -300px;
+            left: -25%;
+            width: 150%;
+            height: 600px;
+            background: 
+                radial-gradient(ellipse at top left, rgba(29, 191, 115, 0.3), transparent 70%),
+                radial-gradient(ellipse at top right, rgba(245, 158, 11, 0.3), transparent 70%);
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            filter: blur(50px);
+        }
+
+        .dark body::before {
+            opacity: 1;
+        }
+
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            outline: none;
+            z-index: -1;
+        }
+        
+        /* Menu overlay styles */
+        #menu-overlay {
+            transition: opacity 0.5s cubic-bezier(0.76, 0, 0.24, 1);
+        }
+        
+        #menu-overlay.hidden {
+            pointer-events: none;
+        }
+        
+        /* Marquee animation */
+        @keyframes marquee {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .animate-marquee {
+            animation: marquee 30s linear infinite;
+        }
+
+        /* Fade-in animation on scroll */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* Gemini Modal */
+        #gemini-modal-backdrop {
+            transition: opacity 0.3s ease-out;
+        }
+        #gemini-modal {
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+
+        .gemini-loader {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #F59E0B;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 w-full p-6 md:p-8 z-50 bg-gray-100/80 dark:bg-[#0A0A0A]/80 backdrop-blur-sm">
+        <div class="container mx-auto flex justify-between items-center gap-8">
+            <a href="#" id="home-link" class="text-lg font-semibold tracking-wider hover:opacity-75 transition-opacity">Propel</a>
+            
+            <!-- Buying Header Content -->
+            <div id="buying-header-content" class="flex-grow flex justify-center items-center">
+                <div class="hidden md:flex flex-grow max-w-xl relative items-center">
+                    <input type="text" id="search-input" placeholder="What service are you looking for today?" class="w-full pl-5 pr-12 py-2.5 rounded-full bg-gray-200 dark:bg-amber-500 border-2 border-transparent dark:text-white dark:placeholder-gray-200 dark:border-amber-500/50 focus:border-amber-500 focus:ring-amber-500 transition-colors text-sm">
+                    <div class="absolute right-0 top-0 bottom-0 px-4 flex items-center text-gray-600 dark:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <div id="search-results" class="absolute top-full mt-2 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden hidden z-50">
+                        <!-- Search results will be injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selling Header Content -->
+            <div id="selling-header-content" class="hidden flex-grow md:flex items-center justify-start space-x-6 text-sm font-medium text-gray-600 dark:text-gray-300">
+            </div>
+
+            <div class="flex items-center space-x-4 md:space-x-6">
+                 <div id="auth-links" class="">
+                    <button id="login-btn" class="text-lg font-semibold tracking-wider hover:opacity-75 transition-opacity">LOGIN</button>
+                </div>
+                <div id="user-info" class="hidden items-center space-x-4">
+                    <button id="switch-to-selling-btn" class="hidden text-sm font-semibold tracking-wider border border-gray-400 dark:border-zinc-700 px-3 py-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors">Switch to Selling</button>
+                    <button id="switch-to-buying-btn" class="hidden text-sm font-semibold tracking-wider border border-gray-400 dark:border-zinc-700 px-3 py-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors">Switch to Buying</button>
+                    <span id="user-email" class="text-sm text-gray-500 dark:text-gray-400"></span>
+                    <button id="logout-btn" class="text-lg font-semibold tracking-wider hover:opacity-75 transition-opacity">LOGOUT</button>
+                </div>
+                <button id="theme-toggle-btn" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors">
+                    <svg id="theme-icon-light" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    <svg id="theme-icon-dark" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                </button>
+                <button id="menu-btn" class="text-lg font-semibold tracking-wider hover:opacity-75 transition-opacity z-[60]">MENU</button>
+                <!-- Seller Menu for Selling View -->
+                <div id="seller-menu-container" class="hidden relative">
+                     <button id="seller-menu-btn" class="w-10 h-10 flex items-center justify-center rounded-full bg-gray-200 dark:bg-zinc-800 transition-colors">
+                         <span id="seller-initial" class="font-bold text-lg"></span>
+                     </button>
+                     <div id="seller-dropdown-menu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-md shadow-lg z-50">
+                         <a href="#" id="seller-profile-btn" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800">Profile</a>
+                     </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Menu Overlay -->
+    <div id="menu-overlay" class="hidden opacity-0 fixed inset-0 bg-gray-100/95 dark:bg-[#0A0A0A]/95 backdrop-blur-sm z-55 flex items-center justify-center">
+        <nav class="text-center">
+            <ul class="text-3xl md:text-5xl font-bold space-y-8">
+                <li><a href="#work" class="menu-link hover:opacity-75 transition-opacity">Work</a></li>
+                <li><a href="#about" class="menu-link hover:opacity-75 transition-opacity">About</a></li>
+                <li><a href="#contact" class="menu-link hover:opacity-75 transition-opacity">Contact</a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <!-- Main Landing Page -->
+    <div id="main-page" class="relative z-10">
+        <main class="container mx-auto px-6 md:px-8">
+            <!-- Hero Section -->
+            <section class="min-h-screen flex flex-col justify-center">
+                <h1 id="hero-tagline" class="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-tight transition-opacity duration-500 ease-in-out">
+                    Need help with your final year project? Worry not, <span class='text-amber-500'>Propel</span> is here to help.
+                </h1>
+                <div class="mt-8 flex items-center space-x-3 text-lg text-gray-600 dark:text-gray-300">
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    <span>Currently available for projects</span>
+                </div>
+                <div class="mt-12 flex flex-wrap items-center gap-4">
+                    <button class="flex items-center space-x-2 px-5 py-3 border border-gray-300 dark:border-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <span>Keep exploring</span>
+                    </button>
+                    <button id="website-dev-btn" class="px-5 py-3 text-sm font-medium hover:text-gray-900 dark:hover:text-white transition-colors">Website Development</button>
+                    <button id="app-dev-btn" class="px-5 py-3 text-sm font-medium hover:text-gray-900 dark:hover:text-white transition-colors">App Development</button>
+                </div>
+            </section>
+
+            <!-- Featured Work Section -->
+            <section id="work" class="py-20 md:py-32">
+                 <div class="text-center mb-12">
+                     <h2 class="text-4xl md:text-5xl font-bold tracking-tighter fade-in">Digital Soul</h2>
+                 </div>
+                
+                 <div class="bg-white dark:bg-zinc-900/90 rounded-2xl shadow-2xl p-8 md:p-12 border border-gray-200 dark:border-zinc-700 fade-in">
+                     <div class="flex flex-col lg:flex-row items-center gap-8 lg:gap-16">
+                         <div class="lg:w-1/2 w-full h-80 lg:h-96 rounded-lg cursor-grab bg-zinc-800/50 p-4">
+                             <canvas id="interactive-canvas"></canvas>
+                         </div>
+                         <div class="lg:w-1/2 text-center lg:text-left">
+                             <h3 class="text-3xl md:text-4xl font-bold tracking-tighter mb-4">The Nexus of Creativity</h3>
+                             <p class="text-lg text-gray-600 dark:text-gray-400 mb-8">This interactive sculpture represents the core of innovation—a central idea surrounded by dynamic, orbiting possibilities. It's a testament to our belief in blending art, technology, and boundless creativity.</p>
+                             <div class="flex justify-center lg:justify-start gap-4">
+                                 <button class="bg-amber-500 text-black font-semibold py-3 px-6 rounded-lg hover:bg-amber-600 transition-colors">View Project Gallery</button>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+             </section>
+            
+            <!-- About Section -->
+            <section id="about" class="py-20 md:py-32">
+                 <h2 class="text-gray-500 dark:text-gray-400 mb-12 fade-in">How It Works</h2>
+                 <div id="about-content" class="max-w-3xl text-xl md:text-2xl leading-relaxed text-gray-700 dark:text-gray-300 space-y-8 fade-in">
+                    <div class="flex items-start gap-6">
+                        <div class="text-amber-500 font-bold text-4xl">1.</div>
+                        <div>
+                            <h3 class="font-semibold text-2xl mb-2">Tell Us Your Vision</h3>
+                            <p class="text-lg text-gray-500 dark:text-gray-400">Choose what you need—a stunning website or a powerful app. Your great idea is the starting point.</p>
+                        </div>
+                    </div>
+                     <div class="flex items-start gap-6">
+                        <div class="text-amber-500 font-bold text-4xl">2.</div>
+                        <div>
+                            <h3 class="font-semibold text-2xl mb-2">Connect with Experts</h3>
+                            <p class="text-lg text-gray-500 dark:text-gray-400">Fill out a simple form, and we'll connect you with top-tier talent ready to bring your project to life.</p>
+                        </div>
+                    </div>
+                    <p class="text-center pt-6 text-2xl font-semibold">That's it. Simple as that.</p>
+                 </div>
+            </section>
+
+        </main>
+        
+        <!-- Footer -->
+        <footer id="contact" class="container mx-auto px-6 md:px-8 pt-20 pb-12">
+            <div class="text-center mb-24 fade-in">
+                <h2 class="text-4xl md:text-5xl font-bold tracking-tighter mb-4">What's Your Next Big Idea?</h2>
+                <p class="text-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-12">Don't have a project yet? Let our AI-powered idea generator spark your creativity and kickstart your next venture.</p>
+                <button id="spark-idea-btn" class="relative group w-40 h-40 bg-zinc-800 rounded-full flex items-center justify-center text-amber-500 shadow-lg hover:bg-zinc-700 transition-all duration-300 mx-auto">
+                    <!-- Pulsating glow effect -->
+                    <span class="absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-20 group-hover:opacity-30 animate-ping"></span>
+                    <!-- Icon -->
+                    <svg class="w-16 h-16 transform group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                </button>
+            </div>
+
+            <div class="flex flex-col items-center space-y-6 text-gray-500 dark:text-gray-400 fade-in text-center mt-16 pt-8 border-t border-zinc-800">
+                <p class="text-sm max-w-md">
+                    Have feedback or ideas for improvement? Email us at 
+                    <a href="https://mail.google.com/mail/?view=cm&fs=1&to=feedback.propel@gmail.com" target="_blank" rel="noopener noreferrer" class="underline hover:text-white transition-colors">feedback.propel@gmail.com</a>.
+                </p>
+                <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="hover:text-gray-900 dark:hover:text-white transition-colors">Back to top ↑</button>
+            </div>
+        </footer>
+        
+        <!-- Marquee -->
+        <div class="w-full overflow-hidden whitespace-nowrap py-8 mt-12 border-t border-gray-200 dark:border-zinc-800">
+            <div class="inline-block animate-marquee"><span class="text-3xl font-semibold mx-8">Let's work together</span><span class="text-3xl font-semibold mx-8 text-gray-400 dark:text-gray-600">—</span><span class="text-3xl font-semibold mx-8">Let's work together</span><span class="text-3xl font-semibold mx-8 text-gray-400 dark:text-gray-600">—</span><span class="text-3xl font-semibold mx-8">Let's work together</span><span class="text-3xl font-semibold mx-8 text-gray-400 dark:text-gray-600">—</span><span class="text-3xl font-semibold mx-8">Let's work together</span><span class="text-3xl font-semibold mx-8 text-gray-400 dark:text-gray-600">—</span></div>
+            <div class="inline-block animate-marquee"><span class="text-3xl font-semibold mx-8">Let's work together</span><span class="text-3xl font-semibold mx-8 text-gray-400 dark:text-gray-600">—</span><span class="text-3xl font-semibold mx-8">Let's work together</span><span class="text-3xl font-semibold mx-8 text-gray-400 dark:text-gray-600">—</span><span class="text-3xl font-semibold mx-8">Let's work together</span><span class="text-3xl font-semibold mx-8 text-gray-400 dark:text-gray-600">—</span><span class="text-3xl font-semibold mx-8">Let's work together</span><span class="text-3xl font-semibold mx-8 text-gray-400 dark:text-gray-600">—</span></div>
+        </div>
+    </div>
+
+    <!-- Website Projects Page -->
+    <div id="website-projects-page" class="hidden relative z-10">
+        <main class="container mx-auto px-6 md:px-8 py-32">
+            <div class="flex items-center mb-12">
+                <button class="back-to-main-btn text-sm font-medium hover:text-gray-900 dark:hover:text-white transition-colors flex items-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    <span>Back</span>
+                </button>
+            </div>
+            <div class="text-center mb-12">
+                <h2 class="text-4xl md:text-5xl font-bold tracking-tighter fade-in">Website Development</h2>
+            </div>
+            <div class="bg-white dark:bg-zinc-900/90 rounded-2xl shadow-2xl p-8 md:p-12 border border-gray-200 dark:border-zinc-700 fade-in">
+                <div class="flex flex-col lg:flex-row items-center gap-8 lg:gap-16">
+                    <div class="lg:w-1/2 text-center lg:text-left">
+                        <h3 class="text-3xl md:text-4xl font-bold tracking-tighter mb-4">Custom E-Commerce Platform</h3>
+                        <p class="text-lg text-gray-600 dark:text-gray-400 mb-8">A complete e-commerce solution with custom features, payment gateway integration, and a user-friendly admin panel for managing products and orders.</p>
+                        <div class="flex justify-center lg:justify-start gap-4">
+                            <button id="get-project-help-btn-website" class="bg-amber-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-amber-600 transition-colors">Get project help</button>
+                        </div>
+                    </div>
+                    <div class="lg:w-1/2">
+                        <img src="https://images.unsplash.com/photo-1522199755839-a2bacb67c546?q=80&w=1472&auto=format&fit=crop" class="rounded-xl shadow-lg w-full h-auto" alt="E-commerce Project">
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- App Projects Page -->
+    <div id="app-projects-page" class="hidden relative z-10">
+        <main class="container mx-auto px-6 md:px-8 py-32">
+            <div class="flex items-center mb-12">
+                 <button class="back-to-main-btn text-sm font-medium hover:text-gray-900 dark:hover:text-white transition-colors flex items-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    <span>Back</span>
+                </button>
+            </div>
+            <div class="text-center mb-12">
+                <h2 class="text-4xl md:text-5xl font-bold tracking-tighter fade-in">App Development</h2>
+            </div>
+            <div class="bg-white dark:bg-zinc-900/90 rounded-2xl shadow-2xl p-8 md:p-12 border border-gray-200 dark:border-zinc-700 fade-in">
+                <div class="flex flex-col lg:flex-row items-center gap-8 lg:gap-16">
+                    <div class="lg:w-1/2 text-center lg:text-left">
+                        <h3 class="text-3xl md:text-4xl font-bold tracking-tighter mb-4">Mobile Fitness Companion</h3>
+                        <p class="text-lg text-gray-600 dark:text-gray-400 mb-8">A cross-platform mobile app that tracks workouts, sets fitness goals, and provides personalized training plans to help users stay motivated.</p>
+                        <div class="flex justify-center lg:justify-start gap-4">
+                            <button id="get-project-help-btn-app" class="bg-amber-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-amber-600 transition-colors">Get project help</button>
+                        </div>
+                    </div>
+                    <div class="lg:w-1/2">
+                        <img src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=1470&auto=format&fit=crop" class="rounded-xl shadow-lg w-full h-auto" alt="Fitness App Project">
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Project Detail Page (Removed) -->
+
+    <!-- START: Project Help Page -->
+    <div id="project-help-page" class="hidden relative z-10">
+        <main class="container mx-auto px-6 md:px-8 py-32">
+            <div class="max-w-2xl mx-auto">
+                <div class="flex items-center mb-8">
+                    <button class="back-to-projects-btn text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors flex items-center space-x-2 bg-gray-100 dark:bg-zinc-800/50 px-4 py-2 rounded-lg border border-gray-200 dark:border-zinc-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        <span>Back</span>
+                    </button>
+                </div>
+                <div class="bg-white/80 dark:bg-zinc-900/90 backdrop-blur-lg rounded-2xl shadow-2xl p-8 md:p-12 border border-gray-200 dark:border-zinc-700">
+                    <h2 class="text-3xl font-bold text-center mb-2 dark:text-white">🚀 Tell us about your project</h2>
+                    <p class="text-center text-gray-600 dark:text-gray-400 mb-8">Fill out the form below to notify all our freelancers about your project.</p>
+                    <form id="projectForm" class="space-y-6">
+                        <div>
+                            <label for="project-form-name" class="block text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Your Name:</label>
+                            <input type="text" id="project-form-name" name="name" required class="mt-1 block w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                        </div>
+                        <div>
+                            <label for="project-form-email" class="block text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Your Email:</label>
+                            <input type="email" id="project-form-email" name="email" required class="mt-1 block w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                        </div>
+                        <div>
+                            <label for="project-type" id="project-type-label" class="block text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Project Type:</label>
+                            <input type="text" id="project-type" name="project_type" required class="mt-1 block w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition" placeholder="e.g., Portfolio Website, Mobile App...">
+                        </div>
+                        <div>
+                            <label for="project-form-description" class="block text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Project Description:</label>
+                            <textarea id="project-form-description" name="description" rows="5" placeholder="Describe what you need..." required class="mt-1 block w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition"></textarea>
+                        </div>
+                        <div>
+                            <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-base font-semibold text-black bg-amber-500 hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:ring-offset-zinc-900 focus:ring-amber-500 transition-all transform hover:scale-[1.02]">Submit Project</button>
+                        </div>
+                        <p id="message" class="text-center text-sm h-4"></p>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+    <!-- END: Project Help Page -->
+
+    <!-- Payment Page Removed -->
+
+    <!-- SELLING PAGE -->
+    <div id="selling-page" class="hidden relative z-10 pt-32 pb-16">
+        <main class="container mx-auto px-6 md:px-8">
+            <div class="flex flex-col lg:flex-row gap-8">
+                <!-- Left Column -->
+                <div class="w-full lg:w-1/4 space-y-6">
+                    <!-- Profile Card -->
+                    <div class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg p-6 text-center">
+                        <div class="w-20 h-20 rounded-full mx-auto mb-4 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                           <span id="seller-avatar" class="text-4xl font-bold text-gray-600 dark:text-gray-300"></span>
+                        </div>
+                        <h3 id="seller-username" class="font-bold text-lg">Blueprints</h3>
+                        <p id="seller-display-name" class="text-sm text-gray-500 dark:text-gray-400 mb-4">@officialblueprints</p>
+                        <button id="view-profile-btn" class="w-full border border-gray-300 dark:border-zinc-700 font-semibold py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors">View Profile</button>
+                    </div>
+
+                    <!-- Level Overview -->
+                    <div class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg p-6">
+                        <h4 class="font-semibold mb-4">Level overview</h4>
+                        <ul class="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                            <li class="flex justify-between items-center"><span>My level</span> <span class="font-medium text-gray-800 dark:text-white">New Seller</span></li>
+                            <li class="flex justify-between items-center"><span>Success score</span> <span>-</span></li>
+                            <li class="flex justify-between items-center"><span>Rating</span> <span class="flex items-center gap-1"> <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg> -</span></li>
+                            <li class="flex justify-between items-center"><span>Response rate</span> <span>-</span></li>
+                        </ul>
+                        <button class="w-full mt-4 border border-gray-300 dark:border-zinc-700 font-semibold py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm">View progress</button>
+                    </div>
+
+                    <!-- Availability -->
+                     <div class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg p-6">
+                        <h4 class="font-semibold mb-2">Availability</h4>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">While unavailable, your Gigs are hidden and you will not receive new orders.</p>
+                        <button class="w-full border border-gray-300 dark:border-zinc-700 font-semibold py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-sm">Set your availability</button>
+                    </div>
+                </div>
+
+                <!-- Right Column -->
+                <div class="w-full lg:w-3/4 space-y-6">
+                    <h2 class="text-3xl font-bold">Welcome, <span id="seller-welcome-name">Blueprints</span></h2>
+                    <p class="text-gray-600 dark:text-gray-400">Find important messages, tips, and links to helpful resources here:</p>
+
+                    <!-- Verify Info -->
+                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded-md flex items-center justify-between">
+                        <div class="flex items-center">
+                            <svg class="w-6 h-6 text-yellow-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            <div>
+                                <h4 class="font-semibold">Verify your information</h4>
+                                <p class="text-sm text-yellow-700 dark:text-yellow-300">Stay compliant to continue working with EU clients</p>
+                            </div>
+                        </div>
+                        <button class="bg-gray-800 dark:bg-gray-200 text-white dark:text-black font-bold py-2 px-4 rounded-lg hover:opacity-90 transition-opacity text-sm">Verify</button>
+                    </div>
+
+                    <!-- Seller Plus -->
+                    <div class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg p-6 flex justify-between items-center">
+                        <div>
+                            <h4 class="font-semibold">Join Seller Plus Kickstart and grow your business</h4>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Check out all the exclusive tools and resources that can help you fast-track your success</p>
+                        </div>
+                        <button class="text-2xl text-gray-500 hover:text-gray-800 dark:hover:text-white">&times;</button>
+                    </div>
+
+                    <!-- Auto Replies -->
+                     <div class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg p-6 flex justify-between items-center">
+                        <div>
+                            <h4 class="font-semibold">Set up inbox auto replies</h4>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Greet new potential buyers with an auto reply to their first message.</p>
+                        </div>
+                        <button class="text-2xl text-gray-500 hover:text-gray-800 dark:hover:text-white">&times;</button>
+                    </div>
+
+                    <!-- Active Orders -->
+                    <div class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg">
+                        <div class="p-6 flex justify-between items-center">
+                            <h4 class="font-semibold">Active orders - 0 ($0)</h4>
+                             <button class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Active orders (0) ▼</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Auth Pages -->
+    <div id="auth-page" class="hidden min-h-screen flex items-center justify-center">
+        <div class="w-full max-w-md p-8 space-y-8">
+            <!-- Login Form -->
+            <div id="login-form-container">
+                <h2 class="text-4xl font-bold text-center">Login</h2>
+                <form id="login-form" class="mt-8 space-y-6">
+                    <div class="rounded-md shadow-sm -space-y-px">
+                        <div><input id="login-email" name="email" type="email" autocomplete="email" required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 placeholder-gray-500 focus:outline-none focus:ring-amber-500 focus:border-amber-500 focus:z-10 sm:text-sm rounded-t-md" placeholder="Email address"></div>
+                        <div><input id="login-password" name="password" type="password" autocomplete="current-password" required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 placeholder-gray-500 focus:outline-none focus:ring-amber-500 focus:border-amber-500 focus:z-10 sm:text-sm rounded-b-md" placeholder="Password"></div>
+                    </div>
+                    <p id="login-error" class="text-red-500 text-sm h-4"></p>
+                    <div><button type="submit" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-amber-500 hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500">Sign in</button></div>
+                </form>
+                <p class="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">Don't have an account? <a href="#" id="show-signup" class="font-medium text-amber-500 hover:text-amber-600">Sign up</a></p>
+            </div>
+            <!-- Signup Form -->
+            <div id="signup-form-container" class="hidden">
+                 <h2 class="text-4xl font-bold text-center">Create Account</h2>
+                <form id="signup-form" class="mt-8 space-y-6">
+                    <div class="rounded-md shadow-sm -space-y-px">
+                        <div><input id="signup-name" name="name" type="text" autocomplete="name" required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 placeholder-gray-500 focus:outline-none focus:ring-amber-500 focus:border-amber-500 focus:z-10 sm:text-sm rounded-t-md" placeholder="Display Name"></div>
+                        <div><input id="signup-email" name="email" type="email" autocomplete="email" required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 placeholder-gray-500 focus:outline-none focus:ring-amber-500 focus:border-amber-500 focus:z-10 sm:text-sm" placeholder="Email address"></div>
+                        <div><input id="signup-password" name="password" type="password" autocomplete="new-password" required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 placeholder-gray-500 focus:outline-none focus:ring-amber-500 focus:border-amber-500 focus:z-10 sm:text-sm rounded-b-md" placeholder="Password"></div>
+                    </div>
+                     <p id="signup-error" class="text-red-500 text-sm h-4"></p>
+                    <div><button type="submit" class="group relative w-full flex justify-center py-3 px-4 border border-amber-500 text-sm font-medium rounded-md text-amber-500 bg-transparent hover:bg-amber-500 hover:text-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">Sign up</button></div>
+                </form>
+                 <p class="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">Already have an account? <a href="#" id="show-login" class="font-medium text-amber-500 hover:text-amber-600">Login</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- START: Role Selection Page -->
+    <div id="role-selection-page" class="hidden fixed inset-0 bg-gray-100 dark:bg-[#0A0A0A] z-[60] flex items-center justify-center p-4">
+        <div class="text-center w-full max-w-4xl">
+            <h2 class="text-3xl md:text-4xl font-bold mb-4">Your account has been created!</h2>
+            <h3 class="text-xl md:text-2xl font-semibold mb-8 text-gray-700 dark:text-gray-300">What brings you to Propel?</h3>
+            <p class="text-gray-500 dark:text-gray-400 mb-12 max-w-md mx-auto">We'll tailor your experience to fit your needs.</p>
+            <div class="flex flex-col md:flex-row gap-8 justify-center">
+                <!-- Client Option -->
+                <div id="select-client-btn" class="cursor-pointer border-2 border-gray-300 dark:border-zinc-700 rounded-lg p-8 hover:border-amber-500 hover:bg-gray-200/50 dark:hover:bg-zinc-800/50 transition-all w-full md:w-80 flex flex-col items-center justify-center text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-700 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 21h7a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v11m0 5l-2.293-2.293a1 1 0 010-1.414l7-7a1 1 0 011.414 0l7 7a1 1 0 010 1.414L15 21m-5-5h.01"></path></svg>
+                    <h4 class="text-xl font-semibold">I'm a client, hiring for a project</h4>
+                </div>
+                <!-- Freelancer Option -->
+                <div id="select-freelancer-btn" class="cursor-pointer border-2 border-gray-300 dark:border-zinc-700 rounded-lg p-8 hover:border-amber-500 hover:bg-gray-200/50 dark:hover:bg-zinc-800/50 transition-all w-full md:w-80 flex flex-col items-center justify-center text-center">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-700 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    <h4 class="text-xl font-semibold">I'm a freelancer, looking for work</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- END: Role Selection Page -->
+
+    <!-- START: Freelancer Welcome Modal -->
+    <div id="freelancer-welcome-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 z-[70] flex items-center justify-center p-4">
+        <div class="bg-gray-100 dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-lg p-8 md:p-12 relative text-center">
+            <svg class="w-24 h-24 mx-auto mb-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            
+            <h2 class="text-2xl md:text-3xl font-bold mb-4">Great, you're almost there.</h2>
+            <p class="text-gray-600 dark:text-gray-400 mb-8">Here's what's next:</p>
+            
+            <ol class="text-left inline-block space-y-4 mb-10">
+                <li class="flex items-center">
+                    <span class="bg-amber-500 text-black rounded-full h-6 w-6 text-sm font-semibold flex items-center justify-center mr-3">1</span>
+                    <span>Complete your freelancer profile</span>
+                </li>
+                <li class="flex items-center">
+                    <span class="bg-amber-500 text-black rounded-full h-6 w-6 text-sm font-semibold flex items-center justify-center mr-3">2</span>
+                    <span>Create your first Gig</span>
+                </li>
+                <li class="flex items-center">
+                    <span class="bg-amber-500 text-black rounded-full h-6 w-6 text-sm font-semibold flex items-center justify-center mr-3">3</span>
+                    <span>Publish it and start selling!</span>
+                </li>
+            </ol>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button id="complete-profile-btn" class="w-full sm:w-auto bg-amber-500 text-black font-semibold py-3 px-6 rounded-lg hover:bg-amber-600 transition-opacity">Complete your freelancer profile</button>
+            </div>
+        </div>
+    </div>
+    <!-- END: Freelancer Welcome Modal -->
+
+    <!-- START: Freelancer Profile Page -->
+    <div id="freelancer-profile-page" class="hidden relative z-10 py-24">
+        <div class="border-b border-gray-200 dark:border-zinc-800 fixed top-0 left-0 w-full bg-gray-100/80 dark:bg-[#0A0A0A]/80 backdrop-blur-sm">
+            <div class="container mx-auto px-6 md:px-8 py-4">
+                <!-- Progress Bar -->
+                <div id="personal-info-progress" class="flex items-center text-sm">
+                    <span class="flex items-center text-amber-500 font-semibold">
+                        <span class="rounded-full bg-amber-500 text-white h-6 w-6 flex items-center justify-center mr-2 text-xs">1</span>
+                        Personal Info
+                    </span>
+                    <span class="mx-4 text-gray-400 dark:text-gray-600">></span>
+                    <span class="flex items-center text-gray-400 dark:text-gray-500">
+                        <span class="rounded-full border-2 border-gray-400 dark:border-gray-500 text-gray-400 dark:text-gray-500 h-6 w-6 flex items-center justify-center mr-2 text-xs">2</span>
+                        Professional Info
+                    </span>
+                    <div class="flex-grow flex items-center justify-end text-gray-500">
+                        <span>Completion Rate: 0%</span>
+                        <div class="w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 ml-2">
+                            <div class="bg-amber-500 h-1.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <main class="container mx-auto px-6 md:px-8 pt-16">
+            <div class="max-w-4xl mx-auto bg-white/80 dark:bg-zinc-900/90 backdrop-blur-lg rounded-2xl shadow-2xl p-8 md:p-12 border border-gray-200 dark:border-zinc-700">
+                <div class="flex justify-between items-baseline mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold dark:text-white">Personal Info</h1>
+                        <p class="text-gray-500 dark:text-gray-400 mt-2">Tell us a bit about yourself. This information will appear on your public profile, so that potential buyers can get to know you better.</p>
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">* Mandatory fields</p>
+                </div>
+
+                <form id="personal-info-form" class="space-y-8">
+                    <div>
+                        <label class="block text-lg font-medium mb-2 dark:text-gray-200">Full Name <span class="text-gray-400 text-sm">(Private)</span><span class="text-red-500">*</span></label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="text" name="firstName" placeholder="First Name" required class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                            <input type="text" name="lastName" placeholder="Last Name" required class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="display-name" class="block text-lg font-medium mb-2 dark:text-gray-200">Display Name<span class="text-red-500">*</span></label>
+                        <input id="display-name" name="displayName" type="text" placeholder="Type your display name" required class="w-full md:w-1/2 bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                    </div>
+                     <div>
+                        <label for="description" class="block text-lg font-medium mb-2 dark:text-gray-200">Description<span class="text-red-500">*</span></label>
+                        <textarea id="description" name="description" rows="5" placeholder="Share a bit about your work experience, cool projects you've completed, and your area of expertise." class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition" minlength="20" maxlength="600" required></textarea>
+                        <div class="text-right text-sm text-gray-500 mt-1 dark:text-gray-400">min. 20 characters <span id="char-count">0/600</span></div>
+                    </div>
+                     <div>
+                        <label class="block text-lg font-medium mb-2 dark:text-gray-200">Languages<span class="text-red-500">*</span></label>
+                         <div id="languages-list" class="space-y-2 mb-4">
+                            <!-- Added languages will appear here -->
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <select id="language-select" class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                                <option value="">Language</option>
+                                <!-- Languages will be populated by JavaScript -->
+                            </select>
+                             <select id="language-level-select" class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                                <option value="">Language Level</option>
+                                <option value="Basic">Basic</option>
+                                <option value="Conversational">Conversational</option>
+                                <option value="Fluent">Fluent</option>
+                                <option value="Native/Bilingual">Native/Bilingual</option>
+                            </select>
+                            <button type="button" id="add-language-btn" class="bg-gray-200 dark:bg-zinc-800/50 dark:hover:bg-zinc-700/60 dark:border dark:border-zinc-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Add</button>
+                        </div>
+                    </div>
+                     <p id="personal-info-error" class="text-red-500 text-sm h-4 text-right"></p>
+                    <div class="pt-6 text-right">
+                        <button type="button" id="personal-info-continue-btn" class="w-full md:w-auto flex justify-center py-3 px-8 border border-transparent rounded-lg shadow-lg text-base font-semibold text-black bg-amber-500 hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:ring-offset-zinc-900 focus:ring-amber-500 transition-all transform hover:scale-[1.02] ml-auto">Continue</button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+    <!-- END: Freelancer Profile Page -->
+
+    <!-- START: Professional Info Page -->
+    <div id="professional-info-page" class="hidden relative z-10 py-24">
+         <div class="border-b border-gray-200 dark:border-zinc-800 fixed top-0 left-0 w-full bg-gray-100/80 dark:bg-[#0A0A0A]/80 backdrop-blur-sm">
+            <div class="container mx-auto px-6 md:px-8 py-4">
+                <!-- Progress Bar -->
+                <div id="professional-info-progress" class="flex items-center text-sm">
+                    <span class="flex items-center text-amber-500">
+                         <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                        Personal Info
+                    </span>
+                    <span class="mx-4 text-amber-500">></span>
+                    <span class="flex items-center text-amber-500 font-semibold">
+                        <span class="rounded-full bg-amber-500 text-white h-6 w-6 flex items-center justify-center mr-2 text-xs">2</span>
+                        Professional Info
+                    </span>
+                    <div class="flex-grow flex items-center justify-end text-gray-500">
+                        <span>Completion Rate: 50%</span>
+                        <div class="w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 ml-2">
+                            <div class="bg-amber-500 h-1.5 rounded-full" style="width: 50%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <main class="container mx-auto px-6 md:px-8 pt-16">
+            <div class="max-w-4xl mx-auto bg-white/80 dark:bg-zinc-900/90 backdrop-blur-lg rounded-2xl shadow-2xl p-8 md:p-12 border border-gray-200 dark:border-zinc-700">
+                 <div class="flex justify-between items-baseline mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold dark:text-white">Professional Info</h1>
+                        <p class="text-gray-500 dark:text-gray-400 mt-2">This is your time to shine. Let potential buyers know what you do best and how you've gained your skills, certifications and experience.</p>
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">* Mandatory fields</p>
+                </div>
+
+                <form id="professional-info-form" class="space-y-8">
+                    <!-- Occupation -->
+                    <div>
+                        <label for="occupation-select" class="block text-lg font-medium mb-2 dark:text-gray-200">Your Occupation<span class="text-red-500">*</span></label>
+                        <select id="occupation-select" class="w-full md:w-1/2 bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                            <option value="">Select Occupation</option>
+                            <option value="Developer & IT">Developer & IT</option>
+                            <option value="Designer & Creative">Designer & Creative</option>
+                            <option value="Writer & Translator">Writer & Translator</option>
+                            <option value="Sales & Marketing">Sales & Marketing</option>
+                            <option value="Admin & Customer Support">Admin & Customer Support</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Skills -->
+                    <div>
+                         <label class="block text-lg font-medium mb-2 dark:text-gray-200">Skills<span class="text-red-500">*</span></label>
+                         <div id="skills-list" class="space-y-2 mb-4"></div>
+                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <input id="skill-input" type="text" placeholder="Add Skill (e.g. Voice Talent)" class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white dark:placeholder-gray-400 border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                            <select id="experience-level-select" class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                                <option value="">Experience Level</option>
+                                <option value="Beginner">Beginner</option>
+                                <option value="Intermediate">Intermediate</option>
+                                <option value="Expert">Expert</option>
+                            </select>
+                             <button type="button" id="add-skill-btn" class="bg-gray-200 dark:bg-zinc-800/50 dark:hover:bg-zinc-700/60 dark:border dark:border-zinc-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Add</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Education -->
+                    <div>
+                         <label class="block text-lg font-medium mb-2 dark:text-gray-200">Education</label>
+                         <div id="education-list" class="space-y-2 mb-4"></div>
+                         <div class="p-4 border border-gray-200 dark:border-zinc-700 rounded-lg">
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                 <select id="education-country-select" class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                                     <option value="">Country of College/University</option>
+                                 </select>
+                                 <input id="education-university-input" type="text" placeholder="College/University Name" class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white dark:placeholder-gray-400 border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                             </div>
+                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                 <select id="education-title-select" class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                                     <option value="">Title</option>
+                                     <option>B.A.</option>
+                                     <option>B.Sc.</option>
+                                     <option>B.Com.</option>
+                                     <option>B.Tech</option>
+                                     <option>M.A.</option>
+                                     <option>M.Sc.</option>
+                                     <option>M.Com.</option>
+                                     <option>M.Tech</option>
+                                     <option>Ph.D.</option>
+                                 </select>
+                                 <input id="education-major-input" type="text" placeholder="Major" class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white dark:placeholder-gray-400 border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                                 <select id="education-year-select" class="w-full bg-gray-100 dark:bg-zinc-800/50 dark:text-white border-2 border-transparent dark:border-zinc-700/50 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-base transition">
+                                     <option value="">Year</option>
+                                 </select>
+                             </div>
+                             <div class="text-right mt-4">
+                                 <button type="button" id="add-education-btn-form" class="bg-gray-200 dark:bg-zinc-800/50 dark:hover:bg-zinc-700/60 dark:border dark:border-zinc-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300">Add</button>
+                             </div>
+                         </div>
+                    </div>
+
+
+                    <div class="pt-6 flex justify-between items-center">
+                         <button type="button" id="professional-info-back-btn" class="font-bold py-3 px-6 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-800/50 transition-colors dark:text-white">Back</button>
+                        <button type="submit" id="professional-info-continue-btn" class="w-full md:w-auto flex justify-center py-3 px-8 border border-transparent rounded-lg shadow-lg text-base font-semibold text-black bg-amber-500 hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:ring-offset-zinc-900 focus:ring-amber-500 transition-all transform hover:scale-[1.02]">Continue</button>
+                    </div>
+                    <p id="professional-info-error" class="text-red-500 text-sm h-4 text-right"></p>
+                </form>
+            </div>
+        </main>
+    </div>
+    <!-- END: Professional Info Page -->
+
+    <!-- START: Public Profile Page -->
+    <div id="public-profile-page" class="hidden relative z-10 pt-32 pb-16">
+        <main class="container mx-auto px-6 md:px-8">
+            <div class="max-w-4xl mx-auto">
+                 <div class="flex justify-between items-center mb-4">
+                     <button id="back-to-selling-dashboard-btn" class="text-sm font-semibold border border-gray-300 dark:border-zinc-700 px-4 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-zinc-800 flex items-center space-x-2">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                         <span>Back to Dashboard</span>
+                     </button>
+                    <button id="edit-profile-btn" class="text-sm font-semibold border border-gray-300 dark:border-zinc-700 px-4 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-zinc-800">Edit Profile</button>
+                </div>
+                <div class="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg p-8">
+                    <div class="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left">
+                        <div class="w-32 h-32 rounded-full bg-gray-200 dark:bg-gray-700 mb-4 sm:mb-0 sm:mr-8 flex-shrink-0 flex items-center justify-center">
+                            <span id="public-profile-initial" class="text-6xl font-bold text-gray-500 dark:text-gray-400"></span>
+                        </div>
+                        <div>
+                            <h2 id="public-display-name" class="text-3xl font-bold"></h2>
+                            <p id="public-occupation" class="text-gray-500 dark:text-gray-400 mt-1"></p>
+                        </div>
+                    </div>
+                    <hr class="my-8 border-gray-200 dark:border-zinc-700">
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4">Description</h3>
+                        <p id="public-description" class="text-gray-600 dark:text-gray-400 leading-relaxed"></p>
+                    </div>
+                     <hr class="my-8 border-gray-200 dark:border-zinc-700">
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                         <div>
+                            <h3 class="text-xl font-semibold mb-4">Languages</h3>
+                            <div id="public-languages-list" class="space-y-2"></div>
+                        </div>
+                         <div>
+                            <h3 class="text-xl font-semibold mb-4">Skills</h3>
+                            <div id="public-skills-list" class="space-y-2"></div>
+                        </div>
+                    </div>
+                     <hr class="my-8 border-gray-200 dark:border-zinc-700">
+                     <div>
+                        <h3 class="text-xl font-semibold mb-4">Education</h3>
+                        <div id="public-education-list" class="space-y-4"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <!-- END: Public Profile Page -->
+
+    <!-- Gemini Project Ideas Modal -->
+    <div id="gemini-modal-backdrop" class="hidden fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4 opacity-0">
+        <div id="gemini-modal" class="bg-gray-100 dark:bg-zinc-900 rounded-lg shadow-xl w-full max-w-2xl p-6 md:p-8 transform scale-95 opacity-0">
+            <div class="flex justify-between items-center mb-6"><h3 class="text-2xl font-bold">✨ Project Idea Generator</h3><button id="close-modal-btn" class="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">&times;</button></div>
+            <div>
+                <label for="project-interest" class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Field of Interest</label>
+                <input type="text" id="project-interest" placeholder="e.g., 'sustainable tech'" class="w-full bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                <button id="get-ideas-submit" class="w-full mt-4 bg-amber-500 hover:bg-amber-600 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"><span>Generate Ideas</span><span id="ideas-loader" class="hidden gemini-loader"></span></button>
+            </div>
+            <div id="ideas-output" class="mt-6 space-y-4 max-h-80 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, getDocs, collection, query, where } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            let auth;
+            let db;
+            const header = document.querySelector('header');
+            try {
+                const firebaseConfig = {
+                    apiKey: "AIzaSyDwfrbOxEqyF_cmIOmXG2rZBwNwxlsOzMc",
+                    authDomain: "propel-3b1f8.firebaseapp.com",
+                    projectId: "propel-3b1f8",
+                    storageBucket: "propel-3b1f8.appspot.com",
+                    messagingSenderId: "503577757299",
+                    appId: "1:503577757299:web:1881b6b8507a5267674c06"
+                };
+                
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            } catch (e) {
+                console.error("Firebase initialization failed:", e.message);
+                const authLinks = document.getElementById('auth-links');
+                if(authLinks) {
+                    authLinks.innerHTML = '<span class="text-red-500 text-sm">Auth Disabled</span>';
+                }
+            }
+
+            let userProfileData = {};
+        
+            // --- Page View Management ---
+            const mainPage = document.getElementById('main-page');
+            const authPage = document.getElementById('auth-page');
+            const websiteProjectsPage = document.getElementById('website-projects-page');
+            const appProjectsPage = document.getElementById('app-projects-page');
+            const projectHelpPage = document.getElementById('project-help-page'); // New Page
+            const sellingPage = document.getElementById('selling-page');
+            const loginFormContainer = document.getElementById('login-form-container');
+            const signupFormContainer = document.getElementById('signup-form-container');
+            const roleSelectionPage = document.getElementById('role-selection-page');
+            const freelancerWelcomeModal = document.getElementById('freelancer-welcome-modal');
+            const freelancerProfilePage = document.getElementById('freelancer-profile-page');
+            const professionalInfoPage = document.getElementById('professional-info-page');
+            const publicProfilePage = document.getElementById('public-profile-page');
+            const sellerMenuContainer = document.getElementById('seller-menu-container');
+            const sellerMenuBtn = document.getElementById('seller-menu-btn');
+            const sellerDropdownMenu = document.getElementById('seller-dropdown-menu');
+            const sellerProfileBtn = document.getElementById('seller-profile-btn');
+            const sellerInitial = document.getElementById('seller-initial');
+
+            const allPages = [mainPage, authPage, websiteProjectsPage, appProjectsPage, sellingPage, roleSelectionPage, freelancerWelcomeModal, freelancerProfilePage, professionalInfoPage, publicProfilePage, projectHelpPage];
+            let pageHistory = [mainPage];
+            let currentView = 'buying';
+
+            const setView = (view) => {
+                header.classList.remove('hidden');
+                currentView = view;
+                const buyingHeader = document.getElementById('buying-header-content');
+                const sellingHeader = document.getElementById('selling-header-content');
+                const switchToSellingBtn = document.getElementById('switch-to-selling-btn');
+                const switchToBuyingBtn = document.getElementById('switch-to-buying-btn');
+                const menuBtn = document.getElementById('menu-btn');
+
+                const isFreelancer = auth.currentUser && userProfileData.role === 'freelancer';
+
+                if(view === 'selling') {
+                    allPages.forEach(page => page.classList.add('hidden'));
+                    sellingPage.classList.remove('hidden');
+                    buyingHeader.classList.add('hidden');
+                    sellingHeader.classList.remove('hidden');
+                    
+                    switchToSellingBtn.classList.add('hidden');
+                    if (isFreelancer) {
+                        switchToBuyingBtn.classList.remove('hidden');
+                    } else {
+                        switchToBuyingBtn.classList.add('hidden');
+                    }
+
+                    menuBtn.classList.add('hidden');
+                    sellerMenuContainer.classList.remove('hidden');
+                } else { // buying
+                    allPages.forEach(page => page.classList.add('hidden'));
+                    mainPage.classList.remove('hidden');
+                    sellingHeader.classList.add('hidden');
+                    buyingHeader.classList.remove('hidden');
+                    
+                    switchToBuyingBtn.classList.add('hidden');
+                    if (isFreelancer) {
+                        switchToSellingBtn.classList.remove('hidden');
+                    } else {
+                        switchToSellingBtn.classList.add('hidden');
+                    }
+                    
+                    menuBtn.classList.remove('hidden');
+                    sellerMenuContainer.classList.add('hidden');
+                    pageHistory = [mainPage];
+                }
+                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            const showPage = (pageToShow, recordHistory = true) => {
+                 header.classList.remove('hidden');
+                // This function is intended for pages within the 'buying' view.
+                if (currentView !== 'buying') {
+                    setView('buying'); 
+                }
+                allPages.forEach(page => page.classList.add('hidden'));
+                pageToShow.classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                if (recordHistory) {
+                    if (pageHistory[pageHistory.length - 1] !== pageToShow) {
+                        pageHistory.push(pageToShow);
+                    }
+                }
+            };
+            
+            const goBack = () => {
+                if (pageHistory.length > 1) {
+                    pageHistory.pop();
+                    const previousPage = pageHistory[pageHistory.length - 1];
+                    showPage(previousPage, false); 
+                } else {
+                    showPage(mainPage, false);
+                }
+            };
+            
+            showPage(mainPage);
+
+
+            const showAuthForm = (form) => {
+                loginFormContainer.classList.add('hidden');
+                signupFormContainer.classList.add('hidden');
+                form.classList.remove('hidden');
+                showPage(authPage, false);
+            };
+            
+            document.getElementById('home-link').addEventListener('click', (e) => { e.preventDefault(); setView('buying'); });
+            document.querySelectorAll('.back-to-main-btn').forEach(btn => btn.addEventListener('click', () => { pageHistory = []; showPage(mainPage); }));
+            document.querySelectorAll('.back-to-projects-btn').forEach(btn => btn.addEventListener('click', goBack));
+
+
+            document.getElementById('login-btn').addEventListener('click', () => showAuthForm(loginFormContainer));
+            document.getElementById('show-signup').addEventListener('click', (e) => { e.preventDefault(); showAuthForm(signupFormContainer); });
+            document.getElementById('show-login').addEventListener('click', (e) => { e.preventDefault(); showAuthForm(loginFormContainer); });
+            
+            document.getElementById('switch-to-selling-btn').addEventListener('click', () => setView('selling'));
+            document.getElementById('switch-to-buying-btn').addEventListener('click', () => {
+                setView('buying');
+            });
+
+            document.getElementById('website-dev-btn').addEventListener('click', () => showPage(websiteProjectsPage));
+            document.getElementById('app-dev-btn').addEventListener('click', () => showPage(appProjectsPage));
+            
+            document.getElementById('get-project-help-btn-website').addEventListener('click', () => {
+                document.getElementById('project-type-label').textContent = 'Website Type:';
+                document.getElementById('project-type').placeholder = 'e.g., Portfolio Website, E-commerce...';
+                showPage(projectHelpPage);
+            });
+
+            document.getElementById('get-project-help-btn-app').addEventListener('click', () => {
+                document.getElementById('project-type-label').textContent = 'App Type:';
+                document.getElementById('project-type').placeholder = 'e.g., Fitness App, Social Media App...';
+                showPage(projectHelpPage);
+            });
+
+            // --- Role Selection & Welcome Modal Logic ---
+            document.getElementById('select-client-btn').addEventListener('click', async () => {
+                const user = auth.currentUser;
+                if (user) {
+                    try {
+                        await updateDoc(doc(db, "users", user.uid), { 
+                            role: 'client'
+                        });
+                        userProfileData.role = 'client'; // Update local state immediately
+                        console.log("User role updated to client in 'users' collection.");
+                    } catch (error) {
+                        console.error("Error setting user role:", error);
+                    }
+                }
+                setView('buying');
+            });
+
+            document.getElementById('select-freelancer-btn').addEventListener('click', async () => {
+                const user = auth.currentUser;
+                if (user) {
+                    try {
+                        await updateDoc(doc(db, "users", user.uid), { 
+                            role: 'freelancer'
+                        });
+                        userProfileData.role = 'freelancer'; // Update local state immediately
+                        console.log("User role updated to freelancer in 'users' collection.");
+                    } catch (error) {
+                        console.error("Error setting user role:", error);
+                    }
+                }
+                // Freelancers see a welcome/next-steps modal first
+                roleSelectionPage.classList.add('hidden');
+                freelancerWelcomeModal.classList.remove('hidden');
+            });
+
+            const hideWelcomeModal = () => {
+                freelancerWelcomeModal.classList.add('hidden');
+            };
+
+            document.getElementById('complete-profile-btn').addEventListener('click', () => {
+                hideWelcomeModal();
+                allPages.forEach(page => page.classList.add('hidden'));
+                freelancerProfilePage.classList.remove('hidden');
+                header.classList.add('hidden');
+            });
+
+            document.getElementById('back-to-selling-dashboard-btn').addEventListener('click', () => {
+                setView('selling');
+            });
+
+            // --- Seller Menu Logic ---
+            sellerMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sellerDropdownMenu.classList.toggle('hidden');
+            });
+            sellerProfileBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                populateAndShowPublicProfile();
+                sellerDropdownMenu.classList.add('hidden');
+            });
+            
+             document.getElementById('view-profile-btn').addEventListener('click', (e) => {
+                e.preventDefault();
+                populateAndShowPublicProfile();
+            });
+
+            document.getElementById('edit-profile-btn').addEventListener('click', () => {
+                allPages.forEach(page => page.classList.add('hidden'));
+                freelancerProfilePage.classList.remove('hidden');
+                header.classList.add('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            function updateProfileUI(profileData) {
+                if (!profileData) return;
+                userProfileData = profileData;
+
+                // Update selling page dashboard
+                const displayName = profileData.displayName || 'User';
+                document.getElementById('seller-username').textContent = displayName;
+                document.getElementById('seller-display-name').textContent = `@${displayName.toLowerCase().replace(/\s/g, '')}`;
+                document.getElementById('seller-avatar').textContent = displayName.charAt(0).toUpperCase();
+                document.getElementById('seller-welcome-name').textContent = displayName;
+                 populateProfileForms(profileData);
+            }
+
+            function populateProfileForms(profileData) {
+                if (!profileData) return;
+
+                // Personal Info
+                personalInfoForm.querySelector('[name="firstName"]').value = profileData.firstName || '';
+                personalInfoForm.querySelector('[name="lastName"]').value = profileData.lastName || '';
+                personalInfoForm.querySelector('[name="displayName"]').value = profileData.displayName || '';
+                descriptionTextarea.value = profileData.description || '';
+                descriptionTextarea.dispatchEvent(new Event('input')); // Trigger char count update
+
+                languagesList.innerHTML = '';
+                if(profileData.languages){
+                    profileData.languages.forEach(lang => addLanguageToList(lang.language, lang.level));
+                }
+
+                // Professional Info
+                occupationSelect.value = profileData.occupation || '';
+                skillsList.innerHTML = '';
+                if(profileData.skills) {
+                    profileData.skills.forEach(skill => addSkillToList(skill.skill, skill.level));
+                }
+                educationList.innerHTML = '';
+                if(profileData.education) {
+                    profileData.education.forEach(edu => addEducationToList(edu));
+                }
+            }
+
+
+            function populateAndShowPublicProfile() {
+                // Populate data
+                const displayName = userProfileData.displayName || 'User';
+                document.getElementById('public-profile-initial').textContent = displayName.charAt(0).toUpperCase();
+                document.getElementById('public-display-name').textContent = displayName;
+                document.getElementById('public-occupation').textContent = userProfileData.occupation || 'Occupation';
+                document.getElementById('public-description').textContent = userProfileData.description || 'No description provided.';
+                
+                const langList = document.getElementById('public-languages-list');
+                langList.innerHTML = '';
+                if(userProfileData.languages && userProfileData.languages.length > 0) {
+                    userProfileData.languages.forEach(lang => {
+                        const li = document.createElement('li');
+                        li.textContent = `${lang.language} - ${lang.level}`;
+                        langList.appendChild(li);
+                    });
+                } else {
+                    langList.innerHTML = '<li class="text-gray-500">No languages added.</li>';
+                }
+
+                const skillList = document.getElementById('public-skills-list');
+                skillList.innerHTML = '';
+                 if(userProfileData.skills && userProfileData.skills.length > 0) {
+                    userProfileData.skills.forEach(skill => {
+                        const li = document.createElement('li');
+                        li.textContent = `${skill.skill} - ${skill.level}`;
+                        skillList.appendChild(li);
+                    });
+                } else {
+                    skillList.innerHTML = '<li class="text-gray-500">No skills added.</li>';
+                }
+
+                const eduList = document.getElementById('public-education-list');
+                eduList.innerHTML = '';
+                if(userProfileData.education && userProfileData.education.length > 0) {
+                     userProfileData.education.forEach(edu => {
+                        const div = document.createElement('div');
+                        div.innerHTML = `<p class="font-medium">${edu.title} in ${edu.major}</p>
+                                         <p class="text-sm text-gray-500 dark:text-gray-400">${edu.university}, ${edu.country}, Graduated ${edu.year}</p>`;
+                        eduList.appendChild(div);
+                    });
+                } else {
+                     eduList.innerHTML = '<p class="text-gray-500">No education added.</p>';
+                }
+
+
+                // Show page
+                allPages.forEach(page => page.classList.add('hidden'));
+                publicProfilePage.classList.remove('hidden');
+                header.classList.remove('hidden'); // Show header on profile page
+                sellerMenuContainer.classList.remove('hidden'); // Ensure seller menu is visible
+                buyingHeader.classList.add('hidden');
+                sellingHeader.classList.remove('hidden');
+                menuBtn.classList.add('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            function clearAllForms() {
+                // Personal info form
+                const personalForm = document.getElementById('personal-info-form');
+                if (personalForm) personalForm.reset();
+                const languagesList = document.getElementById('languages-list');
+                if(languagesList) languagesList.innerHTML = '';
+                const charCount = document.getElementById('char-count');
+                if(charCount) charCount.textContent = '0/600';
+
+
+                // Professional info form
+                const professionalForm = document.getElementById('professional-info-form');
+                if (professionalForm) professionalForm.reset();
+                const skillsList = document.getElementById('skills-list');
+                if(skillsList) skillsList.innerHTML = '';
+                const educationList = document.getElementById('education-list');
+                if(educationList) educationList.innerHTML = '';
+
+                // Optional: clear any displayed profile preview
+                const img = document.getElementById('profile-picture-img');
+                if (img) img.src = img.dataset.defaultSrc || "";
+
+            }
+
+
+            // --- Freelancer Onboarding Flow ---
+            
+            // Personal Info Page
+            const personalInfoContinueBtn = document.getElementById('personal-info-continue-btn');
+            const personalInfoError = document.getElementById('personal-info-error');
+            const personalInfoForm = document.getElementById('personal-info-form');
+
+            personalInfoContinueBtn.addEventListener('click', async (e) => {
+                 e.preventDefault();
+                 let isValid = true;
+                 personalInfoError.textContent = '';
+                
+                 personalInfoForm.querySelectorAll('input, textarea, select').forEach(el => el.classList.remove('border-red-500'));
+                
+                 const firstName = personalInfoForm.querySelector('[name="firstName"]');
+                 if(!firstName.value.trim()){ isValid = false; firstName.classList.add('border-red-500');}
+                
+                 const lastName = personalInfoForm.querySelector('[name="lastName"]');
+                 if(!lastName.value.trim()){ isValid = false; lastName.classList.add('border-red-500');}
+                
+                 const displayName = personalInfoForm.querySelector('[name="displayName"]');
+                 if(!displayName.value.trim()){ isValid = false; displayName.classList.add('border-red-500');}
+
+                 if(descriptionTextarea.value.length < 20) {
+                     isValid = false;
+                     descriptionTextarea.classList.add('border-red-500');
+                 }
+
+                 if(languagesList.children.length === 0){
+                     isValid = false;
+                     languageSelect.classList.add('border-red-500');
+                 }
+
+                 if(isValid) {
+                    const user = auth.currentUser;
+                    if (!user) {
+                        personalInfoError.textContent = "Please login first!";
+                        return;
+                    }
+
+                    const personalData = {
+                        firstName: personalInfoForm.querySelector('[name="firstName"]').value,
+                        lastName: personalInfoForm.querySelector('[name="lastName"]').value,
+                        displayName: personalInfoForm.querySelector('[name="displayName"]').value,
+                        description: personalInfoForm.description.value,
+                        languages: Array.from(languagesList.children).map(item => ({
+                            language: item.dataset.language,
+                            level: item.dataset.level
+                        })),
+                        profileLastUpdatedAt: new Date()
+                    };
+
+                    try {
+                        await updateDoc(doc(db, "users", user.uid), personalData);
+                        console.log("Personal info saved successfully!");
+                        allPages.forEach(page => page.classList.add('hidden'));
+                        professionalInfoPage.classList.remove('hidden');
+                        header.classList.add('hidden');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } catch (error) {
+                        console.error("Error saving personal info:", error);
+                        personalInfoError.textContent = "Error saving personal info. Please try again.";
+                    }
+                 } else {
+                     personalInfoError.textContent = 'Please fill out all mandatory fields.';
+                 }
+            });
+            
+             // Professional Info Page
+             document.getElementById('professional-info-back-btn').addEventListener('click', (e) => {
+                 e.preventDefault();
+                 allPages.forEach(page => page.classList.add('hidden'));
+                 freelancerProfilePage.classList.remove('hidden');
+                 header.classList.add('hidden');
+                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            const professionalInfoForm = document.getElementById('professional-info-form');
+            const professionalInfoError = document.getElementById('professional-info-error');
+            const occupationSelect = document.getElementById('occupation-select');
+            const skillsList = document.getElementById('skills-list');
+            const skillInput = document.getElementById('skill-input');
+            const educationList = document.getElementById('education-list');
+
+            professionalInfoForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const occupation = occupationSelect.value;
+                const skillsCount = skillsList.children.length;
+                professionalInfoError.textContent = '';
+                
+                let isValid = true;
+                if(!occupation){
+                    occupationSelect.classList.add('border-red-500');
+                    isValid = false;
+                } else {
+                     occupationSelect.classList.remove('border-red-500');
+                }
+
+                if(skillsCount === 0){
+                    skillInput.classList.add('border-red-500');
+                    isValid = false;
+                } else {
+                    skillInput.classList.remove('border-red-500');
+                }
+
+                if(!isValid){
+                    professionalInfoError.textContent = 'Please fill out all mandatory fields.';
+                    return;
+                }
+
+                const professionalData = {
+                    occupation: occupationSelect.options[occupationSelect.selectedIndex].text,
+                    skills: Array.from(skillsList.children).map(item => ({
+                        skill: item.dataset.skill,
+                        level: item.dataset.level
+                    })),
+                    education: Array.from(educationList.children).map(item => ({
+                        country: item.dataset.country,
+                        university: item.dataset.university,
+                        title: item.dataset.title,
+                        major: item.dataset.major,
+                        year: item.dataset.year
+                    })),
+                    profileLastUpdatedAt: new Date()
+                };
+
+                try {
+                    const user = auth.currentUser;
+                    if (user) {
+                        await updateDoc(doc(db, "users", user.uid), professionalData);
+                        console.log("Professional info saved successfully!");
+                        
+                        // Fetch the full profile to update the UI correctly
+                        const userProfileRef = doc(db, "users", user.uid);
+                        const userProfileSnap = await getDoc(userProfileRef);
+                        if (userProfileSnap.exists()) {
+                            updateProfileUI(userProfileSnap.data());
+                        }
+
+                        setView('selling');
+                    } else {
+                        throw new Error("No authenticated user found.");
+                    }
+                } catch (error) {
+                    console.error("Error saving profile to Firestore:", error);
+                    professionalInfoError.textContent = "There was an error saving your profile. Please try again.";
+                }
+            });
+
+            const descriptionTextarea = document.getElementById('description');
+            const charCountSpan = document.getElementById('char-count');
+            descriptionTextarea.addEventListener('input', () => {
+                const count = descriptionTextarea.value.length;
+                charCountSpan.textContent = `${count}/600`;
+                 if(count >= 20){
+                     descriptionTextarea.classList.remove('border-red-500');
+                 }
+            });
+
+            const addLanguageBtn = document.getElementById('add-language-btn');
+            const languageSelect = document.getElementById('language-select');
+            const languageLevelSelect = document.getElementById('language-level-select');
+            const languagesList = document.getElementById('languages-list');
+            
+            const languages = ["English", "Spanish", "French", "German", "Mandarin Chinese", "Hindi", "Arabic", "Bengali", "Russian", "Portuguese", "Indonesian", "Urdu", "Japanese", "Swahili", "Marathi", "Telugu", "Turkish", "Korean", "Vietnamese", "Italian", "Tamil", "Polish", "Ukrainian", "Dutch", "Thai", "Greek", "Hebrew", "Swedish", "Czech", "Finnish", "Hungarian", "Romanian", "Danish", "Norwegian"];
+            languages.sort();
+            languages.forEach(lang => {
+                const option = document.createElement('option');
+                option.value = lang;
+                option.textContent = lang;
+                languageSelect.appendChild(option);
+            });
+
+            function addLanguageToList(language, level) {
+                const listItem = document.createElement('div');
+                listItem.dataset.language = language;
+                listItem.dataset.level = level;
+                listItem.className = 'flex justify-between items-center bg-gray-100/50 dark:bg-zinc-800/50 p-3 rounded-lg border border-gray-200 dark:border-zinc-700';
+                listItem.innerHTML = `
+                    <div class="dark:text-white">
+                        <span class="font-medium">${language}</span>
+                        <span class="text-gray-500 dark:text-gray-400 ml-2">- ${level}</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button type="button" class="text-gray-400 hover:text-amber-500 edit-lang-btn">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z"></path></svg>
+                        </button>
+                         <button type="button" class="text-gray-400 hover:text-red-500 delete-lang-btn">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
+                
+                listItem.querySelector('.delete-lang-btn').addEventListener('click', () => {
+                    listItem.remove();
+                });
+                
+                listItem.querySelector('.edit-lang-btn').addEventListener('click', () => {
+                    languageSelect.value = language;
+                    languageLevelSelect.value = level;
+                    listItem.remove();
+                });
+
+                languagesList.appendChild(listItem);
+            }
+
+            addLanguageBtn.addEventListener('click', () => {
+                const language = languageSelect.value;
+                const level = languageLevelSelect.value;
+                if (language && level) {
+                    addLanguageToList(language, level);
+                    languageSelect.value = '';
+                    languageLevelSelect.value = '';
+                    languageSelect.classList.remove('border-red-500');
+                }
+            });
+            
+            const addSkillBtn = document.getElementById('add-skill-btn');
+            const experienceLevelSelect = document.getElementById('experience-level-select');
+            
+             addSkillBtn.addEventListener('click', () => {
+                const skill = skillInput.value.trim();
+                const level = experienceLevelSelect.value;
+                if(skill && level){
+                    addSkillToList(skill, level);
+                    skillInput.value = '';
+                    experienceLevelSelect.value = '';
+                    skillInput.classList.remove('border-red-500'); 
+                }
+             });
+
+            function addSkillToList(skill, level) {
+                const listItem = document.createElement('div');
+                listItem.dataset.skill = skill;
+                listItem.dataset.level = level;
+                listItem.className = 'flex justify-between items-center bg-gray-100/50 dark:bg-zinc-800/50 p-3 rounded-lg border border-gray-200 dark:border-zinc-700 dark:text-white';
+                listItem.innerHTML = `<span>${skill} - ${level}</span><button type="button" class="text-red-500 text-sm font-bold">X</button>`;
+                listItem.querySelector('button').addEventListener('click', () => listItem.remove());
+                skillsList.appendChild(listItem);
+            }
+             
+            // Education Logic
+            const educationCountrySelect = document.getElementById('education-country-select');
+            const educationYearSelect = document.getElementById('education-year-select');
+            const addEducationBtn = document.getElementById('add-education-btn-form');
+
+            const countries = ["USA", "UK", "Canada", "Australia", "Germany", "France", "India", "China", "Japan"];
+            countries.sort();
+            countries.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.textContent = country;
+                educationCountrySelect.appendChild(option);
+            });
+            
+            const currentYear = new Date().getFullYear();
+            for(let year = currentYear; year >= 1960; year--) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                educationYearSelect.appendChild(option);
+            }
+
+            addEducationBtn.addEventListener('click', () => {
+                const country = educationCountrySelect.value;
+                const university = document.getElementById('education-university-input').value.trim();
+                const title = document.getElementById('education-title-select').value;
+                const major = document.getElementById('education-major-input').value.trim();
+                const year = educationYearSelect.value;
+
+                if(country && university && title && major && year) {
+                    addEducationToList({country, university, title, major, year});
+                     // Clear fields
+                    educationCountrySelect.value = '';
+                    document.getElementById('education-university-input').value = '';
+                    document.getElementById('education-title-select').value = '';
+                    document.getElementById('education-major-input').value = '';
+                    educationYearSelect.value = '';
+                }
+            });
+
+            function addEducationToList(edu) {
+                const { country, university, title, major, year } = edu;
+                const listItem = document.createElement('div');
+                listItem.dataset.country = country;
+                listItem.dataset.university = university;
+                listItem.dataset.title = title;
+                listItem.dataset.major = major;
+                listItem.dataset.year = year;
+                listItem.className = 'flex justify-between items-center bg-gray-100/50 dark:bg-zinc-800/50 p-3 rounded-lg border border-gray-200 dark:border-zinc-700';
+                listItem.innerHTML = `
+                    <div class="dark:text-white">
+                        <p class="font-medium">${title} in ${major}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">${university}, ${country}, Graduated ${year}</p>
+                    </div>
+                    <button type="button" class="text-red-500 text-sm font-bold">X</button>
+                 `;
+                listItem.querySelector('button').addEventListener('click', () => listItem.remove());
+                educationList.appendChild(listItem);
+            }
+            
+            // --- End Freelancer Profile Logic ---
+
+            // --- Firebase Auth Logic ---
+            if(auth) {
+                onAuthStateChanged(auth, async (user) => {
+                    const authLinks = document.getElementById('auth-links');
+                    const userInfo = document.getElementById('user-info');
+                    
+                    if (user) {
+                        authLinks.classList.add('hidden');
+                        userInfo.classList.remove('hidden');
+                        userInfo.classList.add('flex'); // Ensure flex is applied
+                        
+                        if(user.email){
+                            sellerInitial.textContent = user.email.charAt(0).toUpperCase();
+                        }
+
+                        // Check for profile data
+                        const userProfileRef = doc(db, "users", user.uid);
+                        const userProfileSnap = await getDoc(userProfileRef);
+
+                        if (userProfileSnap.exists()) {
+                            const profileData = userProfileSnap.data();
+                            updateProfileUI(profileData);
+                            document.getElementById('user-email').textContent = profileData.displayName || user.email;
+                            
+                            // Set the default view based on role
+                            if (profileData.role === 'client') {
+                                setView('buying');
+                            } else if (profileData.role === 'freelancer') {
+                                setView('selling');
+                            } else {
+                                // Role not set yet, stay on role selection or default
+                                if (roleSelectionPage.classList.contains('hidden')) {
+                                    allPages.forEach(page => page.classList.add('hidden'));
+                                    roleSelectionPage.classList.remove('hidden');
+                                }
+                            }
+                        } else {
+                            // This case should ideally not happen if signup works correctly
+                            // but as a fallback, send to role selection.
+                            console.log("No user profile found, directing to role selection.");
+                            document.getElementById('user-email').textContent = user.email;
+                            if (roleSelectionPage.classList.contains('hidden')) {
+                                allPages.forEach(page => page.classList.add('hidden'));
+                                roleSelectionPage.classList.remove('hidden');
+                            }
+                        }
+                        
+                         // Only hide auth page if it's currently shown and role selection is not active
+                        if (document.getElementById('auth-page').classList.contains('hidden') === false && roleSelectionPage.classList.contains('hidden')) {
+                             showPage(mainPage);
+                        }
+                    } else {
+                        authLinks.classList.remove('hidden');
+                        userInfo.classList.add('hidden');
+                        userInfo.classList.remove('flex');
+                        clearAllForms();
+                        setView('buying'); // Set to default view on logout
+                    }
+                });
+
+                document.getElementById('signup-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const displayName = document.getElementById('signup-name').value;
+                    const email = document.getElementById('signup-email').value;
+                    const password = document.getElementById('signup-password').value;
+                    const errorEl = document.getElementById('signup-error');
+                    errorEl.textContent = '';
+
+                    createUserWithEmailAndPassword(auth, email, password)
+                        .then((userCredential) => {
+                             const user = userCredential.user;
+                             // Save initial user data to Firestore "users" collection
+                             setDoc(doc(db, "users", user.uid), {
+                                 displayName: displayName,
+                                 email: user.email,
+                                 createdAt: new Date()
+                             }).then(() => {
+                                 // Send verification email
+                                sendEmailVerification(auth.currentUser)
+                                    .then(() => {
+                                         // On successful creation, show the role selection page
+                                        clearAllForms();
+                                        allPages.forEach(page => page.classList.add('hidden'));
+                                        roleSelectionPage.classList.remove('hidden');
+                                    });
+                             }).catch((dbError) => {
+                                console.error("Error saving user data to Firestore:", dbError);
+                                errorEl.textContent = "Error setting up account.";
+                             });
+                        })
+                        .catch((error) => { errorEl.textContent = error.message.replace('Firebase: ', ''); });
+                });
+
+                document.getElementById('login-form').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('login-email').value;
+                    const password = document.getElementById('login-password').value;
+                    const errorEl = document.getElementById('login-error');
+                    errorEl.textContent = '';
+
+                    try {
+                        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                        const user = userCredential.user;
+                        console.log("User logged in successfully with UID:", user.uid);
+
+                        const userProfileRef = doc(db, "users", user.uid);
+                        const userProfileSnap = await getDoc(userProfileRef);
+
+                        if (userProfileSnap.exists()) {
+                            const profileData = userProfileSnap.data();
+                            console.log("User profile data:", profileData);
+                            
+                            updateProfileUI(profileData);
+
+                            // Redirect based on role
+                            if (profileData.role === 'client') {
+                                setView('buying');
+                            } else if (profileData.role === 'freelancer') {
+                                setView('selling');
+                            } else {
+                               // User has an account but hasn't selected a role
+                               console.log("User has no role, directing to role selection.");
+                               allPages.forEach(page => page.classList.add('hidden'));
+                               roleSelectionPage.classList.remove('hidden');
+                            }
+                        } else {
+                            console.log("No such profile document! Redirecting to role selection.");
+                            // If a user exists but has no profile, send them to role selection
+                            allPages.forEach(page => page.classList.add('hidden'));
+                            roleSelectionPage.classList.remove('hidden');
+                        }
+                    } catch (error) {
+                        console.error("Error signing in:", error.message);
+                        errorEl.textContent = error.message.replace('Firebase: ', '');
+                    }
+                });
+
+                document.getElementById('logout-btn').addEventListener('click', async () => {
+                    try {
+                        await signOut(auth);
+                        console.log("Logged out successfully!");
+                        // onAuthStateChanged will handle UI changes and clearing forms
+                    } catch (error) {
+                        console.error('Logout error', error);
+                    }
+                });
+            }
+
+            // --- Interactive Showcase ---
+            const interactiveCanvas = document.getElementById('interactive-canvas');
+            if (interactiveCanvas && typeof THREE.OrbitControls !== 'undefined') {
+                const scene2 = new THREE.Scene();
+                const parentElement = interactiveCanvas.parentElement;
+                const camera2 = new THREE.PerspectiveCamera(75, parentElement.clientWidth / parentElement.clientHeight, 0.1, 1000);
+                const renderer2 = new THREE.WebGLRenderer({ canvas: interactiveCanvas, alpha: true, antialias: true });
+
+                renderer2.setPixelRatio(window.devicePixelRatio);
+                renderer2.setSize(parentElement.clientWidth, parentElement.clientHeight);
+                camera2.position.setZ(8);
+
+                const sculptureGroup = new THREE.Group();
+                scene2.add(sculptureGroup);
+
+                // --- Glowing Core ---
+                const coreGeometry = new THREE.IcosahedronGeometry(1, 1);
+                const coreMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xF59E0B,
+                    emissive: 0xF59E0B,
+                    emissiveIntensity: 1.5,
+                    roughness: 0.4,
+                    metalness: 0.5
+                });
+                const core = new THREE.Mesh(coreGeometry, coreMaterial);
+                sculptureGroup.add(core);
+
+                const coreLight = new THREE.PointLight(0xF59E0B, 2, 10);
+                core.add(coreLight);
+
+                // --- Orbiting Rings ---
+                const rings = [];
+                const ringMaterial = new THREE.MeshBasicMaterial({ color: 0xF59E0B, wireframe: true });
+                 const ringMaterialSolid = new THREE.MeshStandardMaterial({ 
+                    color: 0xF59E0B, 
+                    emissive: 0xF59E0B, 
+                    emissiveIntensity: 0.5,
+                    roughness: 0.8,
+                    metalness: 0.2
+                });
+
+
+                for (let i = 0; i < 3; i++) {
+                    const geometry = new THREE.TorusGeometry(2.5 + i * 0.7, 0.05, 16, 100);
+                    const ring = new THREE.Mesh(geometry, ringMaterialSolid);
+                    ring.rotation.x = Math.random() * Math.PI;
+                    ring.rotation.y = Math.random() * Math.PI;
+                    rings.push(ring);
+                    sculptureGroup.add(ring);
+                }
+
+                // --- Particle Field ---
+                const particlesGeometry = new THREE.BufferGeometry();
+                const particlesCount = 5000;
+                const posArray = new Float32Array(particlesCount * 3);
+                for (let i = 0; i < particlesCount * 3; i++) {
+                    posArray[i] = (Math.random() - 0.5) * 20;
+                }
+                particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+                const particlesMaterial = new THREE.PointsMaterial({
+                    size: 0.015,
+                    color: 0xAAAAAA
+                });
+                const particleMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+                scene2.add(particleMesh);
+
+                // --- Lighting ---
+                const ambientLight2 = new THREE.AmbientLight(0xffffff, 0.5);
+                scene2.add(ambientLight2);
+                
+                // --- Controls ---
+                const controls = new THREE.OrbitControls(camera2, renderer2.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.enablePan = false;
+                controls.enableZoom = false;
+                controls.autoRotate = true;
+                controls.autoRotateSpeed = 0.2;
+
+                const clock = new THREE.Clock();
+
+                // --- Animation Loop ---
+                function animateInteractive() {
+                    requestAnimationFrame(animateInteractive);
+                    const elapsedTime = clock.getElapsedTime();
+
+                    // Animate core
+                    core.scale.setScalar(Math.sin(elapsedTime * 0.5) * 0.1 + 1);
+
+                    // Animate rings
+                    rings[0].rotation.x += 0.001;
+                    rings[0].rotation.y += 0.002;
+                    rings[1].rotation.x -= 0.002;
+                    rings[1].rotation.y -= 0.001;
+                    rings[2].rotation.z += 0.0015;
+
+                    particleMesh.rotation.y += 0.0005;
+
+                    controls.update();
+                    renderer2.render(scene2, camera2);
+                }
+                animateInteractive();
+
+                // --- Resize Handler ---
+                const onResizeInteractive = () => {
+                    const parent = interactiveCanvas.parentElement;
+                    if (!parent) return;
+                    camera2.aspect = parent.clientWidth / parent.clientHeight;
+                    camera2.updateProjectionMatrix();
+                    renderer2.setSize(parent.clientWidth, parent.clientHeight);
+                };
+                
+                window.addEventListener('resize', onResizeInteractive);
+                setTimeout(onResizeInteractive, 100); // Initial size setup
+            }
+
+
+            // --- UI & Animations ---
+            let mouseX = 0, mouseY = 0;
+
+            window.addEventListener('mousemove', (e) => {
+                const posX = e.clientX;
+                const posY = e.clientY;
+                mouseX = (posX - window.innerWidth / 2) / 100;
+                mouseY = (posY - window.innerHeight / 2) / 100;
+            });
+
+            // --- Hero Tagline Animation ---
+            const taglineElement = document.getElementById('hero-tagline');
+            if (taglineElement) {
+                const taglines = [
+                    "Need help with your final year project? Worry not, <span class='text-amber-500'>Propel</span> is here to help.",
+                    "Got ideas but no time? <span class='text-amber-500'>Propel</span> turns them into <span class='text-amber-500'>reality</span> for you.",
+                    "When deadlines yell, just call <span class='text-amber-500'>Propel</span>."
+                ];
+                let taglineIndex = 0;
+
+                setInterval(() => {
+                    taglineElement.classList.add('opacity-0'); // Fade out
+                    setTimeout(() => {
+                        taglineIndex = (taglineIndex + 1) % taglines.length;
+                        taglineElement.innerHTML = taglines[taglineIndex];
+                        taglineElement.classList.remove('opacity-0'); // Fade in
+                    }, 500); // Wait for fade out to complete
+                }, 5000); // Change every 5 seconds
+            }
+
+            // --- Search Logic ---
+            const searchInput = document.getElementById('search-input');
+            const searchResultsContainer = document.getElementById('search-results');
+            
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !searchResultsContainer.contains(e.target)) {
+                    searchResultsContainer.classList.add('hidden');
+                }
+                if(sellerMenuBtn && !sellerMenuBtn.contains(e.target) && sellerDropdownMenu && !sellerDropdownMenu.classList.contains('hidden')){
+                    sellerDropdownMenu.classList.add('hidden');
+                }
+            });
+
+
+            // --- Three.js Background ---
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg-canvas'), alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.position.setZ(5);
+            
+            const geometry = new THREE.SphereGeometry(2, 64, 64);
+            const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 });
+            const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.5 });
+
+            const sphere = new THREE.Mesh(geometry, darkMaterial);
+            scene.add(sphere);
+
+            const pointLight = new THREE.PointLight(0xffffff);
+            pointLight.position.set(5, 5, 5);
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(pointLight, ambientLight);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                sphere.rotation.y += 0.001;
+                sphere.rotation.x += 0.0005;
+                pointLight.position.x = mouseX * 5;
+                pointLight.position.y = -mouseY * 5;
+                pointLight.position.z = 5;
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            const menuBtn = document.getElementById('menu-btn');
+            const menuOverlay = document.getElementById('menu-overlay');
+            const menuLinks = document.querySelectorAll('.menu-link');
+            const toggleMenu = () => {
+                const isHidden = menuOverlay.classList.contains('hidden');
+                if (isHidden) {
+                    menuOverlay.classList.remove('hidden');
+                    setTimeout(() => { menuOverlay.classList.remove('opacity-0'); menuBtn.textContent = 'CLOSE'; document.body.style.overflow = 'hidden'; }, 10);
+                } else {
+                    menuOverlay.classList.add('opacity-0');
+                    menuBtn.textContent = 'MENU';
+                    document.body.style.overflow = '';
+                    setTimeout(() => { menuOverlay.classList.add('hidden'); }, 500);
+                }
+            };
+            menuBtn.addEventListener('click', toggleMenu);
+            menuLinks.forEach(link => { link.addEventListener('click', toggleMenu); });
+            
+            const faders = document.querySelectorAll('.fade-in');
+            const appearOnScroll = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                });
+            }, { threshold: 0.2, rootMargin: "0px 0px -50px 0px" });
+            faders.forEach(fader => { appearOnScroll.observe(fader); });
+
+            // --- Theme Toggle ---
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            const lightIcon = document.getElementById('theme-icon-light');
+            const darkIcon = document.getElementById('theme-icon-dark');
+
+            const setTheme = (theme) => {
+                localStorage.setItem('theme', theme);
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    lightIcon.classList.add('hidden');
+                    darkIcon.classList.remove('hidden');
+                    sphere.material = darkMaterial;
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    darkIcon.classList.add('hidden');
+                    lightIcon.classList.remove('hidden');
+                    sphere.material = lightMaterial;
+                }
+            };
+            
+            themeToggleBtn.addEventListener('click', () => {
+                const currentTheme = localStorage.getItem('theme') || 'dark';
+                setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+            });
+
+            // Load initial theme
+            const initialTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            setTheme(initialTheme);
+
+
+            // --- Gemini API & Modals ---
+            const apiKey = ""; // You can add your API key here if needed.
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            async function callGeminiAPI(prompt, isJson = false) {
+                const payload = { contents: [{ parts: [{ text: prompt }] }]};
+                if(isJson){
+                     payload.generationConfig = {
+                         responseMimeType: "application/json",
+                         responseSchema: { type: "ARRAY", items: { type: "OBJECT", properties: { "title": { "type": "STRING" }, "description": { "type": "STRING" }, "category": { "type": "STRING" }}, required: ["title", "description", "category"]}}
+                     }
+                }
+                try {
+                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`API call failed: ${response.status}`);
+                    const result = await response.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text;
+                } catch (error) {
+                    console.error("Gemini API error:", error);
+                    return "Sorry, an error occurred.";
+                }
+            }
+            
+            const modalBackdrop = document.getElementById('gemini-modal-backdrop');
+            const modal = document.getElementById('gemini-modal');
+            const openModal = () => {
+                modalBackdrop.classList.remove('hidden');
+                setTimeout(() => { modalBackdrop.classList.remove('opacity-0'); modal.classList.remove('opacity-0', 'scale-95'); }, 10);
+            };
+            const closeModal = () => {
+                modalBackdrop.classList.add('opacity-0');
+                modal.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => { modalBackdrop.classList.add('hidden'); document.getElementById('ideas-output').innerHTML = ''; document.getElementById('project-interest').value = ''; }, 300);
+            };
+            
+            const sparkIdeaBtn = document.getElementById('spark-idea-btn');
+            if(sparkIdeaBtn){
+                sparkIdeaBtn.addEventListener('click', openModal);
+            }
+
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            if(closeModalBtn) {
+                closeModalBtn.addEventListener('click', closeModal);
+            }
+
+            modalBackdrop.addEventListener('click', (e) => { if (e.target === modalBackdrop) closeModal(); });
+
+            document.getElementById('get-ideas-submit').addEventListener('click', async () => {
+                const interest = document.getElementById('project-interest').value;
+                const output = document.getElementById('ideas-output');
+                if (!interest) { output.innerHTML = '<p class="text-red-400">Please enter an interest.</p>'; return; }
+                const btn = document.getElementById('get-ideas-submit');
+                const loader = document.getElementById('ideas-loader');
+                loader.classList.remove('hidden');
+                btn.disabled = true;
+                output.innerHTML = '';
+                const prompt = `Generate 4 portfolio project ideas for a freelance developer specializing in "${interest}". Provide a title, one-sentence description, and category for each.`;
+                const ideasJson = await callGeminiAPI(prompt, true);
+                try {
+                    const ideas = JSON.parse(ideasJson);
+                    ideas.forEach(idea => {
+                        const ideaEl = document.createElement('div');
+                        ideaEl.className = 'bg-white dark:bg-zinc-800 p-4 rounded-lg';
+                        ideaEl.innerHTML = `<div class="flex justify-between items-start"><h4 class="font-bold text-lg">${idea.title}</h4><span class="text-xs bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 px-2 py-1 rounded-full">${idea.category}</span></div><p class="text-gray-600 dark:text-gray-400 mt-1">${idea.description}</p>`;
+                        output.appendChild(ideaEl);
+                    });
+                } catch(e) { output.innerHTML = '<p class="text-red-400">Could not parse ideas.</p>'; }
+                loader.classList.add('hidden');
+                btn.disabled = false;
+            });
+
+            // --- EmailJS Submission for Project Help Form ---
+            const projectHelpForm = document.getElementById('projectForm');
+            if (projectHelpForm) {
+                projectHelpForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const form = e.target;
+                    const submitButton = form.querySelector('button[type="submit"]');
+                    const messageEl = document.getElementById("message");
+                    messageEl.textContent = ''; // Clear previous messages
+
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Sending...';
+
+                    const clientName = document.getElementById("project-form-name").value;
+                    const clientEmail = document.getElementById("project-form-email").value;
+                    const projectType = document.getElementById("project-type").value;
+                    const projectDescription = document.getElementById("project-form-description").value;
+                    
+                    try {
+                        emailjs.init("sA6HClC4ZAqcPsJ6y");
+                        
+                        const usersCollection = collection(db, "users");
+                        const querySnapshot = await getDocs(usersCollection);
+
+
+                        if (querySnapshot.empty) {
+                            messageEl.textContent = "No freelancers found to notify.";
+                            messageEl.className = 'text-center text-sm h-4 text-yellow-500';
+                            submitButton.disabled = false;
+                            submitButton.textContent = 'Submit Project';
+                            return;
+                        }
+
+                        const emailPromises = [];
+                        let freelancersFound = false;
+                        querySnapshot.forEach((doc) => {
+                            const user = doc.data();
+                            if (user.role === 'freelancer') { 
+                                freelancersFound = true;
+                                const templateParams = {
+                                    client_name: clientName,
+                                    client_email: clientEmail,
+                                    project_type: projectType,
+                                    description: projectDescription,
+                                    to_email: user.email,
+                                };
+                                
+                                emailPromises.push(
+                                    emailjs.send("service_bw7gmp4", "template_tvdnaj9", templateParams)
+                                );
+                            }
+                        });
+
+                        if (!freelancersFound) {
+                            messageEl.textContent = "No freelancers found to notify.";
+                            messageEl.className = 'text-center text-sm h-4 text-yellow-500';
+                            submitButton.disabled = false;
+                            submitButton.textContent = 'Submit Project';
+                            return;
+                        }
+
+                        await Promise.all(emailPromises);
+
+                        console.log("All emails sent successfully!");
+                        const formContainer = form.parentElement;
+                        formContainer.innerHTML = `<div class="text-center py-8">
+                                                      <h3 class="text-2xl font-bold dark:text-white">✅ Success!</h3>
+                                                      <p class="dark:text-gray-400 mt-2">Your project has been sent to all our freelancers. They will be in touch shortly.</p>
+                                                  </div>`;
+
+                    } catch (error) {
+                        console.error("Error during form submission:", error);
+                        alert("Error: " + JSON.stringify(error));
+                        messageEl.textContent = 'There was an error sending your request. Please try again.';
+                        messageEl.className = 'text-center text-sm h-4 text-red-500';
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Submit Project';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
+
